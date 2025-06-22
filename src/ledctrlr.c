@@ -9,8 +9,8 @@
 ////////////////////////////////////////////////////////////////////////////////
 //					  __ __
 //		      RESET -|  -  |- VCC
-//	CFG0		PB3 -|     |- PB2	TXD (software tx-only UART)
-//	CFG1		PB4 -|     |- PB1	Output (OCR1A)
+//	Jumper		PB3 -|     |- PB2	TXD (software tx-only UART)
+//	Jumper		PB4 -|     |- PB1	Output (OCR1A)
 //				GND -|_____|- PB0	RC Input (PCINT0)
 //
 //
@@ -77,6 +77,16 @@ volatile uint8_t t2_hi;
 
 volatile uint8_t tcnt0_hi;
 
+// PB3 and PB4 are configured with internal pull-up resistors and are
+// connected to a jumper each:
+// Jumper present: pin low
+// Jumper absent:  pin high
+
+enum mode_t { NORMAL = (1<<PIN3) | (1<<PIN4),	// no jumper
+			  TEST1  = (1<<PIN3),				// jumper on PB4 only
+			  TEST2  = (1<<PIN4),				// jumper on PB3 only
+			  TEST3  = 0 };						// both jumpers
+
 
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -87,11 +97,11 @@ int main(void)
 	uint16_t t1;
 	uint16_t t2;
 	int16_t rcin;
-	char cfg0;
-	char cfg1;
 
 	char buf[16];
 	char output_state;
+
+	enum mode_t mode;
 
 // FIXME: check OSCCAL value, place define in .platformio file
 	OSCCAL = 0x4E;	    // manually calibrated by hand for 3.3V and ambient
@@ -154,6 +164,8 @@ int main(void)
     #endif
 
 
+	// check jumper configuration, but only at startup
+	mode = PINB & ((1<<PIN3) | (1<<PIN4));
 
 	GPIOR0 = 0x00;
 	sei();
@@ -195,25 +207,13 @@ int main(void)
 			}
 
 
-			if(PINB & (1<<CFG0))
-				cfg0 = '1';
-			else
-				cfg0 = '0';
-
-			if(PINB & (1<<CFG1))
-				cfg1 = '1';
-			else
-				cfg1 = '0';
-
 			// Time for UART transmissions is limited
 			// RCIN period is about 14ms (e.g. for Futaba RX)
 			// Time from falling egde to next rising is thus ca. 12ms
 			// At 19200 baud, 1 character (10 bits) is 521 us
 			// => there is time for max. 23 characters
 
-			uart_transmit(cfg0);
-			uart_transmit(' ');
-			uart_transmit(cfg1);
+			uart_transmit(mode + '0');
 			uart_transmit('\t');
 			uart_print(utoa(rcin, buf, 10));
 			uart_transmit('\t');
