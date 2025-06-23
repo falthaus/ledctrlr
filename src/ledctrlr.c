@@ -41,7 +41,7 @@
 #define VOUT_HI_MV		(2500)
 #define VSUPPLY_MV		(3300)
 
-#define VOUT_DEFAULT_MV	(0)
+#define VOUT_DEFAULT_MV	(1650)
 
 
 #define USE_64MHZ
@@ -103,11 +103,11 @@ int main(void)
 
 	enum mode_t mode;
 
-// FIXME: check OSCCAL value, place define in .platformio file
-	OSCCAL = 0x4E;	    // manually calibrated by hand for 3.3V and ambient
-						// (factory calibration done for 3.0V and 25°C)
+	// Set OSCCAL calibration value for 3.3V and ambient temperature
+	// (factory calibration is done for 3.0V and 25°C)
+	OSCCAL = OSCCAL_VALUE;	// OSCCAL_VALUE is defined in the build flags
 
-// FIXME: configure unused as inputs and with pull-up
+	// FIXME: configure unused as inputs and with pull-up
 	PORTB = (1<<TXD)|(1<<CFG0)|(1<<CFG1);	// TXD idle level is logic high, all others low
 											// CFG0 and CFG1 with internal pull-ups
 
