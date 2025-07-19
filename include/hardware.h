@@ -23,6 +23,8 @@
 // Hardware-dependent Constants
 //
 #define VSUPPLY_MV		(3300)
+#define BAUDRATE        (19200)
+#define OSCCAL_VALUE    (0x4F)
 
 
 ////////////////////////////////////////////////////////////////////////////////
