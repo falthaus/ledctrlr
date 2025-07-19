@@ -7,57 +7,31 @@
 //
 //
 ////////////////////////////////////////////////////////////////////////////////
-//					  __ __
-//		      RESET -|  -  |- VCC
-//	Jumper		PB3 -|     |- PB2	TXD (software tx-only UART)
-//	Jumper		PB4 -|     |- PB1	Output (OCR1A)
-//				GND -|_____|- PB0	RC Input (PCINT0)
-//
-//
-////////////////////////////////////////////////////////////////////////////////
 
 
 #include <avr/io.h>
 #include <avr/interrupt.h>
 #include <util/delay.h>
-
 #include <stdlib.h>
 #include <stdbool.h>
+
+#include "uart.h"
+#include "hardware.h"
 
 
 ////////////////////////////////////////////////////////////////////////////////
 
+// TODO: move to separate headerfile to keep only the logic in this main C file
 
 #define INPUT_LOW_US	(1100)
 #define INPUT_MID_US	(1520)
 #define INPUT_HI_US		(1940)
 #define INPUT_TOL_US	(105)
 
-
+#define VOUT_DEFAULT_MV	(1650)
 #define VOUT_LOW_MV		(500)
 #define VOUT_MID_MV		(1250)
 #define VOUT_HI_MV		(2500)
-#define VOUT_DEFAULT_MV	(1650)
-#define VSUPPLY_MV		(3300)
-
-
-////////////////////////////////////////////////////////////////////////////////
-
-// I/O Configuration
-//						// I/O		Weak pull-ups
-#define RCIN 	(PB0)	// I		no
-#define OUT 	(PB1)	// O		no
-#define TXD 	(PB2)	// O		no
-#define CFG0 	(PB3)	// I		yes
-#define CFG1 	(PB4)	// I		yes
-
-
-////////////////////////////////////////////////////////////////////////////////
-
-
-void uart_init(void);
-void uart_transmit(uint8_t);
-void uart_print(char*);
 
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -197,62 +171,6 @@ int main(void)
 	} // end while
 
 } // end main
-
-
-////////////////////////////////////////////////////////////////////////////////
-
-
-void uart_init(void)
-{
-	PORTB |= (1<<TXD);	// TXD idle level is logic high
-						// DDR: 0=input, 1=output
-	DDRB |= (1<<TXD);	// TXD is output
-}
-
-
-////////////////////////////////////////////////////////////////////////////////
-
-
-#define BIT_DELAY	(1e6/BAUDRATE)
-
-void uart_transmit(uint8_t c)
-{
-	uint8_t bp;
-
-	// idle (high)
-
-	// START bit (low)
-	PORTB &= ~(1<<TXD);
-	_delay_us(BIT_DELAY);
-
-	for(bp=1; bp; bp=bp<<1)				// LSB first
-	{
-		if(c & bp)
-			PORTB |= (1<<TXD);
-		else
-			PORTB &= ~(1<<TXD);
-		_delay_us(BIT_DELAY);			// TODO: account for loop overhead @ 8 MHZ!!!
-	}
-
-	// STOP bit (high)
-	PORTB |= (1<<TXD);
-	_delay_us(BIT_DELAY);
-
-	// idle (high)
-}
-
-
-////////////////////////////////////////////////////////////////////////////////
-
-
-void uart_print(char* s)
-{
-	while(*s)
-	{
-		uart_transmit(*s);
-		s++;
-	}
-}
 
 
 ////////////////////////////////////////////////////////////////////////////////

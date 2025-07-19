@@ -1,0 +1,66 @@
+////////////////////////////////////////////////////////////////////////////////
+
+
+////////////////////////////////////////////////////////////////////////////////
+
+
+#include "uart.h"
+
+
+////////////////////////////////////////////////////////////////////////////////
+
+
+void uart_init(void)
+{
+	PORTB |= (1<<TXD);	// TXD idle level is logic high
+						// DDR: 0=input, 1=output
+	DDRB |= (1<<TXD);	// TXD is output
+}
+
+
+////////////////////////////////////////////////////////////////////////////////
+
+
+#define BIT_DELAY	(1e6/BAUDRATE)
+
+void uart_transmit(uint8_t c)
+{
+	uint8_t bp;
+
+	// idle (high)
+
+	// START bit (low)
+	PORTB &= ~(1<<TXD);
+	_delay_us(BIT_DELAY);
+
+	for(bp=1; bp; bp=bp<<1)				// LSB first
+	{
+		if(c & bp)
+			PORTB |= (1<<TXD);
+		else
+			PORTB &= ~(1<<TXD);
+		_delay_us(BIT_DELAY);			// TODO: account for loop overhead @ 8 MHZ!!!
+	}
+
+	// STOP bit (high)
+	PORTB |= (1<<TXD);
+	_delay_us(BIT_DELAY);
+
+	// idle (high)
+}
+
+
+////////////////////////////////////////////////////////////////////////////////
+
+
+void uart_print(char* s)
+{
+	while(*s)
+	{
+		uart_transmit(*s);
+		s++;
+	}
+}
+
+
+////////////////////////////////////////////////////////////////////////////////
