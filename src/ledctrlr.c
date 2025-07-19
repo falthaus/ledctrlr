@@ -28,23 +28,17 @@
 ////////////////////////////////////////////////////////////////////////////////
 
 
-
-
-#define INPUT_LOW		(1100)
-#define INPUT_MID		(1520)
-#define INPUT_HI		(1940)
-#define INPUT_TOL		(105)
+#define INPUT_LOW_US	(1100)
+#define INPUT_MID_US	(1520)
+#define INPUT_HI_US		(1940)
+#define INPUT_TOL_US	(105)
 
 
 #define VOUT_LOW_MV		(500)
 #define VOUT_MID_MV		(1250)
 #define VOUT_HI_MV		(2500)
-#define VSUPPLY_MV		(3300)
-
 #define VOUT_DEFAULT_MV	(1650)
-
-
-#define USE_64MHZ
+#define VSUPPLY_MV		(3300)
 
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -126,42 +120,16 @@ int main(void)
 	TIMSK  = (1<<TOIE0);
 
 
-	// TCCR0A = (1<<COM0B1) | (1<<WGM01) | (1<<WGM00);
-	// TCCR0B = (1<<CS00);
-	// OCR0B = 64;
+	//PLLCSR |= (1<<LSM);       // Low-speed mode
+	PLLCSR |= (1<<PLLE);        // enable PLL
+	_delay_us(100);             // wait for PLL steady-state
+								// (PLOCK should be ignored during PLL lock-in)
+	while( !(PLLCSR & (1<<PLOCK)) );  // wait for PLL to lock
+	PLLCSR|= (1<<PCKE);         // enable asynchronous clock
 
-
-
-    #ifdef USE_8MHZ
-
-        // f_pwm = 40 kHz
-        // Resolution: 200 steps
-        // T_pwm = 25 us
-        // 40 cycles / 1ms
-        // 400 cycles per 10 ms
-        //
-        OCR1C = 200-1;
-        TCCR1 = (1<<PWM1A) | (1<<COM1A1) | (1<<CS10);
-        OCR1A = duty_cycle;
-        OCR1A = 100;
-
-    #endif
-
-
-    #ifdef USE_64MHZ
-
-        //PLLCSR |= (1<<LSM);       // Low-speed mode
-        PLLCSR |= (1<<PLLE);        // enable PLL
-        _delay_us(100);             // wait for PLL steady-state
-                                    // (PLOCK should be ignored during PLL lock-in)
-        while( !(PLLCSR & (1<<PLOCK)) );  // wait for PLL to lock
-        PLLCSR|= (1<<PCKE);         // enable asynchronous clock
-
-        TCCR1 = (1<<PWM1A) | (1<<COM1A1) | (1<<CS10);   // PCK/1
-        OCR1C = 0xFF;               // 64 MHz / 1 / 256 = 250 kHz @ 8bit resolution
-        OCR1A = OCR1A = (255L*VOUT_DEFAULT_MV + (VSUPPLY_MV/2))/VSUPPLY_MV;
-
-    #endif
+	TCCR1 = (1<<PWM1A) | (1<<COM1A1) | (1<<CS10);   // PCK/1
+	OCR1C = 0xFF;               // 64 MHz / 1 / 256 = 250 kHz @ 8bit resolution
+	OCR1A = OCR1A = (255L*VOUT_DEFAULT_MV + (VSUPPLY_MV/2))/VSUPPLY_MV;
 
 
 	// check jumper configuration, but only at startup
@@ -185,17 +153,17 @@ int main(void)
 			rcin = t2 - t1;
 
 
-			if((rcin > INPUT_LOW-INPUT_TOL) && (rcin < INPUT_LOW+INPUT_TOL))
+			if((rcin > INPUT_LOW_US-INPUT_TOL_US) && (rcin < INPUT_LOW_US+INPUT_TOL_US))
 			{
 				OCR1A = (255L*VOUT_LOW_MV + (VSUPPLY_MV/2))/VSUPPLY_MV;
 				output_state = '0';
 			}
-			else if((rcin > INPUT_MID-INPUT_TOL) && (rcin < INPUT_MID+INPUT_TOL))
+			else if((rcin > INPUT_MID_US-INPUT_TOL_US) && (rcin < INPUT_MID_US+INPUT_TOL_US))
 			{
 				OCR1A = (255L*VOUT_MID_MV + (VSUPPLY_MV/2))/VSUPPLY_MV;
 				output_state = '1';
 			}
-			else if((rcin > INPUT_HI-INPUT_TOL) && (rcin < INPUT_HI+INPUT_TOL))
+			else if((rcin > INPUT_HI_US-INPUT_TOL_US) && (rcin < INPUT_HI_US+INPUT_TOL_US))
 			{
 				OCR1A = (255L*VOUT_HI_MV + (VSUPPLY_MV/2))/VSUPPLY_MV;
 				output_state = '2';
@@ -236,14 +204,16 @@ int main(void)
 
 void uart_init(void)
 {
-	;
+	PORTB |= (1<<TXD);	// TXD idle level is logic high
+						// DDR: 0=input, 1=output
+	DDRB |= (1<<TXD);	// TXD is output
 }
 
 
 ////////////////////////////////////////////////////////////////////////////////
 
 
-#define BIT_DELAY	(1e6/BAUD)
+#define BIT_DELAY	(1e6/BAUDRATE)
 
 void uart_transmit(uint8_t c)
 {
@@ -261,7 +231,7 @@ void uart_transmit(uint8_t c)
 			PORTB |= (1<<TXD);
 		else
 			PORTB &= ~(1<<TXD);
-		_delay_us(BIT_DELAY);			// TODO: account for loop overhead!!!
+		_delay_us(BIT_DELAY);			// TODO: account for loop overhead @ 8 MHZ!!!
 	}
 
 	// STOP bit (high)
