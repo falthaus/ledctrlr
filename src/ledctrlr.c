@@ -127,7 +127,7 @@ int main(void)
 			rcin = t2 - t1;
 
 
-			if((rcin > INPUT_LOW_US-INPUT_TOL_US) && (rcin < INPUT_LOW_US+INPUT_TOL_US))
+			if((rcin > INPUT_LOW_US-2*INPUT_TOL_US) && (rcin < INPUT_LOW_US+INPUT_TOL_US))
 			{
 				OCR1A = (255L*VOUT_LOW_MV + (VSUPPLY_MV/2))/VSUPPLY_MV;
 				output_state = '0';
@@ -137,7 +137,7 @@ int main(void)
 				OCR1A = (255L*VOUT_MID_MV + (VSUPPLY_MV/2))/VSUPPLY_MV;
 				output_state = '1';
 			}
-			else if((rcin > INPUT_HI_US-INPUT_TOL_US) && (rcin < INPUT_HI_US+INPUT_TOL_US))
+			else if((rcin > INPUT_HI_US-INPUT_TOL_US) && (rcin < INPUT_HI_US+2*INPUT_TOL_US))
 			{
 				OCR1A = (255L*VOUT_HI_MV + (VSUPPLY_MV/2))/VSUPPLY_MV;
 				output_state = '2';
