@@ -65,6 +65,7 @@ int main(void)
 	uint16_t t1;
 	uint16_t t2;
 	int16_t rcin;
+	uint8_t adc;
 
 	char buf[16];
 	char output_state;
@@ -82,10 +83,16 @@ int main(void)
 												// DDR: 0=input, 1=output
 	DDRB = ~((1<<RCIN)|(1<<CFG0)|(1<<CFG1));	// RCIN, CFG0 CFG1 are inputs, all others output
 
-
 	uart_init();
 
+	// ADC initialization
+	// FIXME: Pull-ups may have to be disabled
+	ADMUX = (1<<ADLAR) | 2;				// Vref = VCC, left-adjusted, input = ADC2/PB4
+	//ADMUX = (1<<ADLAR) | 3;			// Vref = VCC, left-adjusted, input = ADC3/PB3
+	ADCSRA = (1<<ADPS2) | (1<<ADPS1);	// ADC clock = 8 MHz / 64 = 125 kHz
+	ADCSRA |= (1<<ADEN);				// enable ADC
 
+	// Configure and enable pin-change interrupts
 	PCMSK |= (1<<PCINT0);
 	GIMSK |= (1<<PCIE);
 
@@ -148,18 +155,24 @@ int main(void)
 				output_state = '-';
 			}
 
+			// perform a single ADC conversion, wait for it to finish
+			ADCSRA |= (1<<ADSC);
+			while(ADCSRA & (1<<ADSC));
+			adc = ADCH;		// only 8bit are needed (duty cycle is 8 bit only)
 
+			// Caution:
 			// Time for UART transmissions is limited
 			// RCIN period is about 14ms (e.g. for Futaba RX)
 			// Time from falling egde to next rising is thus ca. 12ms
 			// At 19200 baud, 1 character (10 bits) is 521 us
 			// => there is time for max. 23 characters
 
-			uart_transmit(mode + '0');
+//			uart_transmit(mode + '0');
+//			uart_transmit('\t');
+//			uart_print(utoa(rcin, buf, 10));
+			uart_print(utoa(adc, buf, 10));
 			uart_transmit('\t');
-			uart_print(utoa(rcin, buf, 10));
-			uart_transmit('\t');
-			uart_transmit(output_state);
+			uart_print(utoa(OCR1A, buf, 10));
 			uart_print("\r\n");
 
 			// Re-enable interrupts after UART transmissions are done
