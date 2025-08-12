@@ -21,35 +21,52 @@ Usage:
 
 # Input
 Vc = [1.235, 0.490, 2.435]
+Vc = [0.535, 1.238, 1.918]
+Vc = [0.540, 1.218, 1.874]
 
 
 # Parameters (typical):
-Ri = 50         # GPIO internal resistance [Ohm]
+Ri = 50         # GPIO internal output resistance [Ohm]
 Rs = 1000       # RC filter resistor [Ohm]
 Vdd = 3.3       # unloaded GPIO high-level voltage [V]
                 # (low-level is assumed as 0V)
-RL = 10000      # Pull-down resistor at AL8807 CTRL input
-Rctrl = 50000   # AL8807 internal resistance CTRL input to int. reference
+RL = 10e3       # Pull-down resistor at AL8807 CTRL input
+Rctrl = 50e3    # AL8807 internal resistance CTRL input to int. reference
 Vref = 2.5      # AL8807 internal reference voltage
+N = 2           # Number of AL8807 connected to PWM ADC output
 
 
 print("PWM ADC driving AL8807 LED Driver")
 print()
 print("Output unloaded:")
 print()
-print(" Vc [V]\t\tVo [V]\t\td [-]")
-print(" "+"---"*12)
+print(" Vctrl [V]\tVo [V]\t\td [-]")
+print(" "+"-"*36)
 
 for x in Vc:
-
     d = round(x*(Ri+Rs)/(x*Ri + Vdd*Rs)*255)
     Vo = (x*Ri + Vdd*Rs) / (Ri+Rs)
-
     print(f" {x:1.3f}V\t\t{Vo:1.3f}V\t\t{d: 4d}")
 
 print()
 print()
 
 print("Output connected to AL8807 CTRL pin:")
-print("...")
-#FXIME: to be implemented
+print()
+print(" d [-]\t\td [%]\t\tVctrl [V]")
+print(" "+"-"*40)
+
+for ocr1a in [40, 100, 158]:
+    d = ocr1a/256
+    v_ctrl =  (Rs*Vref+Rctrl/2*Vdd*d)*RL/(RL*Rs+Rctrl/N*Rs+Rctrl/N*RL)
+    print(f" {ocr1a:3d}\t\t{d*100:.1f}%\t\t{v_ctrl:1.3f}V")
+
+print()
+print()
+
+print(" Vctrl [V]\td [%]\t\td [-]")
+print(" "+"-"*36)
+for x in Vc:
+    d = (x/RL*(RL*Rs+Rctrl/N*Rs+Rctrl/N*RL) - Rs*Vref)/(Rctrl/2*Vdd)
+    ocr1a = round(d*256)
+    print(f" {x:1.3f}V\t\t{d*100:.1f}%\t\t{ocr1a:4d}")
