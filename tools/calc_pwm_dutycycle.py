@@ -20,7 +20,7 @@ Usage:
 
 
 # Input
-Vc = [1.235, 0.490, 2.435]
+Vc = [0.25, 0.5, 0.75, 1.0, 1.25, 1.5, 2.0, 2.5]
 
 
 # Parameters (typical):
@@ -37,15 +37,15 @@ print("PWM ADC driving AL8807 LED Driver")
 print()
 print("Output unloaded:")
 print()
-print(" Vc [V]\t\tVo [V]\t\td [-]")
-print(" "+"---"*12)
+print(" Vc [V]\t\tVo [V]\t\t  d [-]")
+print(" "+"-"*40)
 
 for x in Vc:
 
     d = round(x*(Ri+Rs)/(x*Ri + Vdd*Rs)*255)
     Vo = (x*Ri + Vdd*Rs) / (Ri+Rs)
 
-    print(f" {x:1.3f}V\t\t{Vo:1.3f}V\t\t{d: 4d}")
+    print(f" {x:1.3f}V\t\t{Vo:1.3f}V\t\t{d:3d} / {round(d/255*100, 1):.1f}%")
 
 print()
 print()
