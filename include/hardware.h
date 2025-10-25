@@ -21,9 +21,12 @@
 ////////////////////////////////////////////////////////////////////////////////
 
 // Hardware-dependent Constants
-//
-#define VSUPPLY_MV		(3300)
+
+// Software UART baud rate
 #define BAUDRATE        (19200)
+
+// Set OSCCAL calibration value for 3.3V and ambient temperature
+// (factory calibration is done for 3.0V and 25°C)
 #define OSCCAL_VALUE    (0x4F)
 
 

@@ -17,21 +17,7 @@
 
 #include "uart.h"
 #include "hardware.h"
-
-
-////////////////////////////////////////////////////////////////////////////////
-
-// TODO: move to separate headerfile to keep only the logic in this main C file
-
-#define INPUT_LOW_US	(1100)
-#define INPUT_MID_US	(1520)
-#define INPUT_HI_US		(1940)
-#define INPUT_TOL_US	(105)
-
-#define VOUT_DEFAULT_MV	(1650)
-#define VOUT_LOW_MV		(500)
-#define VOUT_MID_MV		(1250)
-#define VOUT_HI_MV		(2500)
+#include "config.h"
 
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -65,32 +51,21 @@ int main(void)
 	uint16_t t1;
 	uint16_t t2;
 	int16_t rcin;
-	uint8_t adc;
 
 	char buf[16];
-	char output_state;
 
 	enum mode_t mode;
 
-	// Set OSCCAL calibration value for 3.3V and ambient temperature
-	// (factory calibration is done for 3.0V and 25°C)
-	OSCCAL = OSCCAL_VALUE;	// OSCCAL_VALUE is defined in the build flags
+	OSCCAL = OSCCAL_VALUE;	// user-calibrated OSCCAL_VALUE
 
 	// FIXME: configure unused as inputs and with pull-up
-	PORTB = (1<<TXD)|(1<<CFG0)|(1<<CFG1);	// TXD idle level is logic high, all others low
-											// CFG0 and CFG1 with internal pull-ups
+	PORTB = (1<<TXD)|(1<<CFG0)|(1<<CFG1);		// TXD idle level is logic high, all others low
+												// CFG0 and CFG1 with internal pull-ups
 
 												// DDR: 0=input, 1=output
 	DDRB = ~((1<<RCIN)|(1<<CFG0)|(1<<CFG1));	// RCIN, CFG0 CFG1 are inputs, all others output
 
 	uart_init();
-
-	// ADC initialization
-	// FIXME: Pull-ups may have to be disabled
-	ADMUX = (1<<ADLAR) | 2;				// Vref = VCC, left-adjusted, input = ADC2/PB4
-	//ADMUX = (1<<ADLAR) | 3;			// Vref = VCC, left-adjusted, input = ADC3/PB3
-	ADCSRA = (1<<ADPS2) | (1<<ADPS1);	// ADC clock = 8 MHz / 64 = 125 kHz
-	ADCSRA |= (1<<ADEN);				// enable ADC
 
 	// Configure and enable pin-change interrupts
 	PCMSK |= (1<<PCINT0);
@@ -110,7 +85,7 @@ int main(void)
 
 	TCCR1 = (1<<PWM1A) | (1<<COM1A1) | (1<<CS10);   // PCK/1
 	OCR1C = 0xFF;               // 64 MHz / 1 / 256 = 250 kHz @ 8bit resolution
-	OCR1A = OCR1A = (255L*VOUT_DEFAULT_MV + (VSUPPLY_MV/2))/VSUPPLY_MV;
+	OCR1A = DUTY_DEFAULT & 0xFF;
 
 
 	// check jumper configuration, but only at startup
@@ -134,31 +109,36 @@ int main(void)
 			rcin = t2 - t1;
 
 
-			if((rcin > INPUT_LOW_US-2*INPUT_TOL_US) && (rcin < INPUT_LOW_US+INPUT_TOL_US))
-			{
-				OCR1A = (255L*VOUT_LOW_MV + (VSUPPLY_MV/2))/VSUPPLY_MV;
-				output_state = '0';
-			}
-			else if((rcin > INPUT_MID_US-INPUT_TOL_US) && (rcin < INPUT_MID_US+INPUT_TOL_US))
-			{
-				OCR1A = (255L*VOUT_MID_MV + (VSUPPLY_MV/2))/VSUPPLY_MV;
-				output_state = '1';
-			}
-			else if((rcin > INPUT_HI_US-INPUT_TOL_US) && (rcin < INPUT_HI_US+2*INPUT_TOL_US))
-			{
-				OCR1A = (255L*VOUT_HI_MV + (VSUPPLY_MV/2))/VSUPPLY_MV;
-				output_state = '2';
+			#ifdef ADJUST
+				// map RC input to duty cycle to adjust PWM voltage (and thus LED current)
 
-			}
-			else
-			{
-				output_state = '-';
-			}
+				if (rcin < 1000)
+					rcin = 1000;
+				else if(rcin > 2020)
+					rcin = 2020;
 
-			// perform a single ADC conversion, wait for it to finish
-			ADCSRA |= (1<<ADSC);
-			while(ADCSRA & (1<<ADSC));
-			adc = ADCH;		// only 8bit are needed (duty cycle is 8 bit only)
+				OCR1A = ((rcin - 1000)>>2) & 0xFF;
+
+			#else
+
+				if((rcin > INPUT_LOW_US-2*INPUT_TOL_US) && (rcin < INPUT_LOW_US+INPUT_TOL_US))
+				{
+					OCR1A = DUTY_LOW & 0xFF;
+				}
+				else if((rcin > INPUT_MID_US-INPUT_TOL_US) && (rcin < INPUT_MID_US+INPUT_TOL_US))
+				{
+					OCR1A = DUTY_MID & 0xFF;
+				}
+				else if((rcin > INPUT_HI_US-INPUT_TOL_US) && (rcin < INPUT_HI_US+2*INPUT_TOL_US))
+				{
+					OCR1A = DUTY_HI & 0xFF;
+				}
+				else
+				{
+					;
+				}
+
+			#endif
 
 			// Caution:
 			// Time for UART transmissions is limited
@@ -167,10 +147,9 @@ int main(void)
 			// At 19200 baud, 1 character (10 bits) is 521 us
 			// => there is time for max. 23 characters
 
-//			uart_transmit(mode + '0');
-//			uart_transmit('\t');
-//			uart_print(utoa(rcin, buf, 10));
-			uart_print(utoa(adc, buf, 10));
+			uart_transmit(mode + '0');
+			uart_transmit('\t');
+			uart_print(utoa(rcin, buf, 10));
 			uart_transmit('\t');
 			uart_print(utoa(OCR1A, buf, 10));
 			uart_print("\r\n");
